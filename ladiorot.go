@@ -1,6 +1,8 @@
 package main
 
 import (
+	"github.com/joho/godotenv"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -66,8 +68,22 @@ func main() {
 		if err != nil {
 			//send email alert
 			println(err.Error())
+			sendEmail(err.Error())
 		}
 	}
+}
+
+func sendEmail(emailMsg string) {
+	err := godotenv.Load()
+	check(err)
+	destAddy := os.Getenv("DEST_ADDY")
+
+	cmd := "./sendMail.sh" + " " + `"` +
+		destAddy + "|" +
+		emailMsg + `"`
+	out, err := exec.Command("bash", "-c", cmd).Output()
+	check(err)
+	println(string(out))
 }
 
 func utilGetField(msg, startDelim string) string {

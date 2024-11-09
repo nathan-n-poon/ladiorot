@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var layout string
@@ -23,7 +24,7 @@ type policyChecker interface {
 	getIngressChan() chan string
 }
 
-func main() {
+func doCheck(masterDoneChan chan bool) {
 	// some applescript bs
 	nnbsp, _ := strconv.Unquote(`"\u202F"`)
 	layout = "Monday, January 2, 2006 at 3:04:05" + nnbsp + "PM" //"Wednesday, October 23, 2024 at 7:47:42 PM"
@@ -31,15 +32,20 @@ func main() {
 	dbg := &onlineChecker{MsgChan: make(chan string)}
 	checkers := []policyChecker{dbg}
 
-	doneChan := make(chan bool)
+	servantDoneChan := make(chan bool)
 
 	go func() {
 		for _, checker := range checkers {
-			checker.run(doneChan)
+			checker.run(servantDoneChan)
 		}
 	}()
 
-	out, err := exec.Command("osascript", "./toroidal.scptd").Output()
+	err := godotenv.Load()
+	check(err)
+	recAddy := os.Getenv("REC_ADDY")
+	cmd := "./bash/readMail.sh" + " " + `"` +
+		recAddy + `"`
+	out, err := exec.Command("bash", "-c", cmd).Output()
 	check(err)
 
 	strOut := strings.TrimSpace(string(out))
@@ -60,7 +66,7 @@ func main() {
 	}
 
 	for _ = range len(checkers) {
-		<-doneChan
+		<-servantDoneChan
 	}
 
 	for _, checker := range checkers {
@@ -71,6 +77,25 @@ func main() {
 			sendEmail(err.Error())
 		}
 	}
+	masterDoneChan <- true
+}
+
+func main() {
+	doneChan := make(chan bool)
+	timeOutChan := make(chan bool)
+
+	go doCheck(doneChan)
+	go func(timeOutChan chan bool) {
+		time.Sleep(5 * time.Second)
+		timeOutChan <- true
+	}(timeOutChan)
+
+	select {
+	case <-doneChan:
+		return
+	case <-timeOutChan:
+		panic("Checking emails stalled out :(")
+	}
 }
 
 func sendEmail(emailMsg string) {
@@ -78,7 +103,7 @@ func sendEmail(emailMsg string) {
 	check(err)
 	destAddy := os.Getenv("DEST_ADDY")
 
-	cmd := "./sendMail.sh" + " " + `"` +
+	cmd := "./bash/sendMail.sh" + " " + `"` +
 		destAddy + "|" +
 		emailMsg + `"`
 	out, err := exec.Command("bash", "-c", cmd).Output()

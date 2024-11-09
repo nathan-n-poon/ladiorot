@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-var savedLatestDatePath = "lastCommDate.txt"
+var savedLatestDatePath = "./store/lastCommDate.txt"
 
 type onlineChecker struct {
 	latestDate time.Time
@@ -23,7 +23,7 @@ func (o *onlineChecker) checkApplicability(subject string) bool {
 
 func (o *onlineChecker) summary() error {
 	if time.Now().Sub(o.latestDate) > 36*time.Hour {
-		return errors.New("onion no contact")
+		return errors.New("onion no contact.  Last contact: " + o.latestDate.String())
 	}
 	return nil
 }

@@ -29,16 +29,16 @@ func doCheck(masterDoneChan chan bool) {
 	nnbsp, _ := strconv.Unquote(`"\u202F"`)
 	layout = "Monday, January 2, 2006 at 3:04:05" + nnbsp + "PM" //"Wednesday, October 23, 2024 at 7:47:42 PM"
 
-	dbg := &onlineChecker{MsgChan: make(chan string)}
-	checkers := []policyChecker{dbg}
+	checkers := []policyChecker{
+		&onlineChecker{MsgChan: make(chan string)},
+		&temperatureChecker{MsgChan: make(chan string)},
+	}
 
 	servantDoneChan := make(chan bool)
 
-	go func() {
-		for _, checker := range checkers {
-			checker.run(servantDoneChan)
-		}
-	}()
+	for _, checker := range checkers {
+		go checker.run(servantDoneChan)
+	}
 
 	err := godotenv.Load()
 	check(err)
